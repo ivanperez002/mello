@@ -107,7 +107,7 @@ function renderBoard() {
 }
 
 function makeSortable() {
-  Sortable.create($broadContainer);
+  Sortable.create($broadContainer[0]);
 }
 
 function openListCreateModal() {
