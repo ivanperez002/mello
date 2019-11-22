@@ -45,14 +45,14 @@ function handleLogout() {
   });
 }
 
-function createCards(cards) {
+function createCards(list) {
   let $cardUl = $('<ul>');
 
-  let $cardLis = cards.map(function(card) {
+  let $cardLis = list.cards.map(function(card) {
     let $cardLi = $('<li>');
     let $cardButton = $('<button>')
       .text(card.text)
-      .data(card)
+      .data({ ...card, list_id: list.id })
       .on('click', openCardEditModal);
 
     $cardLi.append($cardButton);
@@ -67,13 +67,13 @@ function createCards(cards) {
 
 function createLists(lists) {
   let $listContainers = lists.map(function(list) {
-    let $listContainer = $('<div class="list">').data('id', list.id);
+    let $listContainer = $('<div class="list">').data(list);
     let $header = $('<header>');
     let $headerButton = $('<button>')
       .text(list.title)
       .data(list)
       .on('click', openListEditModel);
-    let $cardUl = createCards(list.cards);
+    let $cardUl = createCards(list);
     let $addCardButton = $('<button>Add a card...</button>').on('click', openCardCreateModal);
 
     $header.append($headerButton);
@@ -107,7 +107,68 @@ function renderBoard() {
 }
 
 function makeSortable() {
-  Sortable.create($broadContainer[0]);
+  Sortable.create($boardContainer[0], {
+    animation: 150,
+    ghostClass: 'ghost',
+    filter: '.add',
+    easing: 'cubic-bezier(0.785, 0.135, 0.15, 0.86)',
+    onMove: function(event) {
+      let shouldMove = !$(event.related).hasClass('add');
+      return shouldMove;
+    },
+    onEnd: function(event) {
+      let { id, position } = $(event.item).data();
+      let newPosition = event.newIndex + 1;
+
+      if (position === newPosition) {
+        return;
+      }
+
+      $.ajax({
+        url: `/api/lists/${id}`,
+        data: {
+          position: newPosition
+        },
+        method: 'PUT'
+      }).then(function() {
+        init();
+      });
+    }
+  });
+
+  $('.list > ul').each(function(index, element) {
+    Sortable.create(element, {
+      animation: 150,
+      ghostClass: 'ghost',
+      easing: 'cubic-bezier(0.785, 0.135, 0.15, 0.86)',
+      group: 'shared',
+      onEnd: function(event) {
+        let { id, position, list_id } = $(event.item)
+          .find('button')
+          .data();
+        let newPosition = event.newIndex + 1;
+        let newListId = $(event.item)
+          .parents('.list')
+          .data('id');
+
+        if (position === newPosition && list_id === newListId) {
+          return;
+        }
+
+        $.ajax({
+          url: `/api/cards/${id}`,
+          method: 'PUT',
+          data: {
+            list_id: newListId,
+            position: newPosition
+          }
+        }).then(function() {
+          init();
+        });
+      }
+    });
+  });
+  
 }
 
 function openListCreateModal() {
